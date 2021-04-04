@@ -1,2 +1,2 @@
-# active_learning_cv
-Active learning exploration for computer vision tasks.
+# Active Learning_for Computer Vision
+Active learning exploration for computer vision tasks, using Pytorch.
