@@ -1,0 +1,1 @@
+{'run_id': '300000', 'query_types': ['random'], 'model': 'mobilenet_v2', 'dataset': 'covid', 'seed_percent': 1}
