@@ -28,9 +28,9 @@ if __name__ == '__main__':
   
   # Setup the class which handles training and querying
   query_types = [
-    {'name': 'random', 'func': UniformRandomSampler()},
-    {'name': 'confidence', 'func': MarginSampler(batch_size=64)},
-    {'name': 'k-nearest-confidence', 'func': KNearestSampler(batch_size=64, neighbours=15)},
+    # {'name': 'random', 'func': UniformRandomSampler()},
+    # {'name': 'confidence', 'func': MarginSampler(batch_size=64)},
+    # {'name': 'k-nearest-confidence', 'func': KNearestSampler(batch_size=64, neighbours=15)},
     {'name': 'k-nearest-confidence-mix-15-n', 'func': MixtureSampler(KNearestSampler(batch_size=64, neighbours=15), weight=0.8, verbose=True)},
     {'name': 'k-nearest-confidence-mix-30-n', 'func': MixtureSampler(KNearestSampler(batch_size=64, neighbours=30), weight=0.8, verbose=True)},
     {'name': 'confidence-mix', 'func': MixtureSampler(MarginSampler(batch_size=64), weight=0.8, verbose=True)},
@@ -52,20 +52,19 @@ if __name__ == '__main__':
                                     batch_size=64,
                                     log_freq=1,
                                     log_level=2,
-                                    run_id=300001)
+                                    run_id=300005)
 
   print("Initialised models.")
-  # print(len(runner.cur_idx[0]))
   
-  query_iterations = 3
+  query_iterations = 1
   for i in range(query_iterations):
     print(f'Iteration: {runner.train_iter}')
     runner.run_train_and_query()
   
-  runner.run_validation(iterations=10, log_freq=1, log_level=2, epochs=18)
+  # runner.run_validation(iterations=10, log_freq=1, log_level=2, epochs=18)
   
-  plot = Plotter()
-  plt = plot.get_plots_from_file(runner.q_names, runner.save_loc + '/val-results.json')
+  # plot = Plotter()
+  # plt = plot.get_plots_from_file(runner.q_names, runner.save_loc + '/val-results.json')
   # plot = Plotter()
   # plt = plot.get_plots_from_multiple_files([['random', 'confidence', 'k-nearest-confidence'], 
   #                                              ['k-nearest-confidence-mix-15-n', 'k-nearest-confidence-mix-30-n', 'confidence-mix']], 

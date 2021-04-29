@@ -1,6 +1,6 @@
 from al_sampling.utils import initialise_seed_dataloader, create_dataloader_from_indices
 from training.train import train_part
-from training.utils import log_timestamp
+from training.utils import log_timestamp, check_accuracy
 from constants import ConfigManager
 
 USE_TB = ConfigManager.USE_TB
@@ -54,6 +54,7 @@ class ActiveLearningComparison():
     self.initial_class_sample = initial_class_sample
     self.done_query = False
 
+    self.to_train = [] # List indicating which indicies of models to train, used for only training certain models based on progress, first run etc
     self.cur_idx = []
     self.train_loaders = []
     self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, pin_memory=True)
@@ -62,7 +63,7 @@ class ActiveLearningComparison():
     # If given a run_id and Google Drive is mounted, check if we can load some current progress
     loaded = False
     if not (run_id is None or SAVE_LOC is None):
-      loaded = self.load_run_id(SAVE_LOC+'/runs', run_id)
+      loaded = self.load_run_id(SAVE_LOC+'/runs', run_id, prompt=True)
 
     # If Google Drive is mounted but we failed to load any data, create the files in Drive
     if not (SAVE_LOC is None or loaded):
@@ -72,7 +73,7 @@ class ActiveLearningComparison():
     if not loaded:
       self.create_indicies()
 
-    self.init_models()
+    self.init_models(loaded=loaded)
 
     # Set seed for reproducibility
     torch.manual_seed(self.r_seed)
@@ -80,10 +81,7 @@ class ActiveLearningComparison():
 
   def create_indicies(self):
     assert len(self.cur_idx) == 0
-    seed_loader, known_index = initialise_seed_dataloader(self.data, 
-                                                          self.s_percent, 
-                                                          min_samples=self.initial_class_sample, 
-                                                          batch_size=self.batch_size)
+    seed_loader, known_index = initialise_seed_dataloader(self.data, self.s_percent, min_samples=self.initial_class_sample, batch_size=self.batch_size)
     for _ in range(len(self.q_types)):
       self.train_loaders.append(seed_loader)
       self.cur_idx.append(known_index)
@@ -164,8 +162,20 @@ class ActiveLearningComparison():
     
     self.models[model_idx].to(device)
 
+  def load_model(self, location, to_device=True):
+    assert os.path.isfile(location)
+    try:
+      m = torch.load(location)
+      if to_device:
+        m.to(device)
+    except Exception:
+      if self.verbose:
+        print(f'Unable to load trained model. \n Location: {location}')
+      return None
+    
+    return m
   
-  def load_run_id(self, location, run_id):
+  def load_run_id(self, location, run_id, load_if_possible=False, prompt=False):
     run_id = '%.6d' % run_id
     # File existence check
     if not os.path.isfile(location+f'/{run_id}/run_details.json'):
@@ -185,15 +195,10 @@ class ActiveLearningComparison():
       raise KeyError('Metadata is different, choose another run id')
     
     self.save_loc = location+f'/{run_id}'
-
-    # Check if the indices file is loaded (important as without indicies, nothing to load, generate new ones instead)
-    if not os.path.isfile(self.save_loc+f'/idx.npz'):
-      self.create_indicies()
-      self.run_id = run_id
-      return True
-
+    
     # Update current parameters with the saved run progress
     # Read the results file if it exists (not the end of the world if it doesn't exist)
+    # If we saved the model of a certain train iteration, test it and ask the user if we want to load it
     if os.path.isfile(self.save_loc+f'/results.json'):
       f = open(self.save_loc+f'/results.json','r')
       res_data = ''.join(f.readlines())
@@ -202,8 +207,38 @@ class ActiveLearningComparison():
       self.train_iter = res_data['iter']
       self.results = list(res_data['results'].values())
       self.done_query = res_data['done_query']
+      self.to_train = []
+      self.models = [None] * len(self.q_types)
+       
+      if load_if_possible or prompt:
+        for i in range(len(self.q_names)):
+          if os.path.isfile(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt'):
+            m = self.load_model(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
+            if m is None:
+              self.to_train.append(i)
+              continue
+            if not load_if_possible:
+              test_acc = check_accuracy(self.test_data, m, verbose=False)
+              allow = ''
+              while allow.lower() not in ['y', 'n', 'yes', 'no']:
+                allow = input(f'Loaded model {self.q_names[i]} with test accuracy of {test_acc}, do you want to load this result and directly query the model? [Y/N]: ')
+              
+              if allow.lower() not in ['y', 'yes']:
+                self.to_train.append(i)
+                continue
+              
+            self.models[i] = m
+          else:
+            self.to_train.append(i)
     else:
       self.results = [[] for _ in range(len(self.q_types))]
+      self.to_train = [i for i in range(len(self.q_types))]
+
+    # Check if the indices file is loaded (important as without indicies, nothing to load, generate new ones instead)
+    if not os.path.isfile(self.save_loc+f'/idx.npz'):
+      self.create_indicies()
+      self.run_id = run_id
+      return True
 
     # Read the indicies file
     index_zip = np.load(self.save_loc+f'/idx.npz')
@@ -218,30 +253,42 @@ class ActiveLearningComparison():
     self.run_id = run_id
     return True
 
-  def init_models(self):
-    self.models = []
-    self.optims = []
-    self.schedulers = []
+  def init_models(self, loaded=False):
+    if not loaded or len(self.models) != len(self.q_types):
+      self.to_train = [i for i in range(len(self.q_types))]
+      self.models   = [None] * len(self.q_types)
+    self.optims     = [None] * len(self.q_types)
+    self.schedulers = [None] * len(self.q_types)
 
-    for _ in range(len(self.q_types)):
-      m = self.model().to(device)
-      op = self.optim(m.parameters(), lr=self.lr)
-      s = self.scheduler(op, mode='max', factor=0.5, patience=1)
-      self.models.append(m)
-      self.optims.append(op)
-      self.schedulers.append(s)
+    missing_models = [i for i in range(len(self.models)) if self.models[i] is None]
+    missing_optims = [i for i in range(len(self.optims)) if self.optims[i] is None]
+    missing_schedulers = [i for i in range(len(self.schedulers)) if self.schedulers[i] is None]
+    for i in range(len(missing_models)):
+      self.models[i] = self.model().to(device)
+    
+    for i in range(len(missing_optims)):
+      self.optims[i] = self.optim(self.models[i].parameters(), lr=self.lr)
+    
+    for i in range(len(missing_schedulers)):
+      self.schedulers[i] = self.scheduler(self.optims[i], mode='max', factor=0.5, patience=1)
+    
+    assert len([0 for i in self.models if i is None]) == 0
+    assert len([0 for i in self.optims if i is None]) == 0
+    assert len([0 for i in self.schedulers if i is None]) == 0
 
   def run_train(self, save=True, first_run=False):
     self.train_iter += 1
-    train_count = 1 if first_run else len(self.models)
-    
+    if first_run:
+      self.to_train = [0]
+
     # Train each model
-    for i in range(train_count):
+    for i in self.to_train:
       if self.verbose:
         if first_run:
           print("| Running first training session with a single model and copying |")
         else:
           print("| Training %s |" % (self.q_names[i]))
+          
         log_timestamp()
       
       # Tensorboard Logging
@@ -271,6 +318,7 @@ class ActiveLearningComparison():
           self.models[k] = copy.deepcopy(self.models[0])
           if save:
             self.results[k].append(res)
+            self.save_model(k, self.q_names[k])
 
       if save:
         self.results[i].append(res)
