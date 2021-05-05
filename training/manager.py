@@ -22,180 +22,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# Attempt active learning comparison
-class ActiveLearningComparison():
-  def __init__(self, data, test_data, model, optim, epochs=10,
-               learning_rate=0.01, query_percent=0.1, seed_percent=0.1, 
-               query_types=[], random_seed=42, scheduler=None, scheduler_type='epoch', 
-               loss_func=None, initial_class_sample=0, batch_size=128,
-               verbose=True, log_freq=1, log_level=2, run_id=None):
-    
-    self.ds_name = data.root.split('/')[-1]
-    self.data = data
-    self.q_names = [q['name'] for q in query_types]
-    self.s_percent = seed_percent
-    self.test_data = test_data
-    self.epochs = epochs
-    self.train_iter = 0
-    self.lr = learning_rate
-    self.q_size = math.floor(len(data.data) * query_percent)
-    self.q_types = [q['func'] for q in query_types]
-    self.r_seed = random_seed
-    self.scheduler = scheduler
-    self.scheduler_type = scheduler_type
-    self.model = model
-    self.optim = optim
-    self.loss_fs = loss_func
-    self.batch_size = batch_size
-    self.verbose = verbose
-    self.copy_on_first_iter = True
-    self.log_freq = log_freq
-    self.log_level = log_level
-    self.initial_class_sample = initial_class_sample
-    self.done_query = False
-
-    self.to_train = [] # List indicating which indicies of models to train, used for only training certain models based on progress, first run etc
-    self.cur_idx = []
-    self.train_loaders = []
-    self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, pin_memory=True)
-    self.results = []
-
-    # If given a run_id and Google Drive is mounted, check if we can load some current progress
-    loaded = False
-    if not (run_id is None or SAVE_LOC is None):
-      loaded = self.load_run_id(SAVE_LOC+'/runs', run_id, prompt=True)
-
-    # If Google Drive is mounted but we failed to load any data, create the files in Drive
-    if not (SAVE_LOC is None or loaded):
-      self.create_run_id(SAVE_LOC+'/runs', run_id)
-
-    # Initialise seed loaders if we are not continuing from before
-    if not loaded:
-      self.create_indicies()
-
-    self.init_models(loaded=loaded)
-
-    # Set seed for reproducibility
-    torch.manual_seed(self.r_seed)
-    np.random.seed(self.r_seed)
-
-  def create_indicies(self):
-    assert len(self.cur_idx) == 0
-    seed_loader, known_index = initialise_seed_dataloader(self.data, self.s_percent, min_samples=self.initial_class_sample, batch_size=self.batch_size)
-    for _ in range(len(self.q_types)):
-      self.train_loaders.append(seed_loader)
-      self.cur_idx.append(known_index)
-      self.results.append([])
-
-    self.save_progress()
+# Manager class used for housekeeping and exploring results
+class ResultsManager():
+  def __init__(self, run_id):
+    self.run_id = '%.6d' % run_id
+    self.save_loc = f'{SAVE_LOC}/{run_id}'
   
-  def get_metadata(self, run_id):
-    metadata = {
-        'run_id': run_id, 
-        'query_types': self.q_names, 
-        'model': self.model.__name__, 
-        'dataset': self.ds_name,
-        'seed_percent': self.s_percent
-    }
-    return metadata
-
-  def create_run_id(self, location, run_id=None):
-    if run_id is None:
-      found_new_id = False
-      while not found_new_id:
-        run_id = '%.6d' % (np.random.randint(0, 1000000),)
-        # File existence check
-        if not os.path.isfile(location+f'/{run_id}/run_details.json'):
-          break
-    else:
-      if os.path.isfile(location+f'/{run_id}/run_details.json'):
-        raise FileExistsError('Unable to create run at selected id, directory already exists.')
-
-    run_id = '%.6d' % run_id if type(run_id) == int else run_id
-    os.makedirs(location+f'/{run_id}', mode=711, exist_ok=True)
-    # Save the metadata to file
-    metadata = self.get_metadata(run_id)
-    f = open(location+f'/{run_id}/run_details.json','w')
-    f.write(str(metadata))
-    f.close()
-    self.save_loc = location+f'/{run_id}'
-    self.run_id = run_id
-    return
-
-  def save_progress(self):
-    self.save_indices()
-    self.save_results()
-
-  def save_indices(self):
-    if self.save_loc is None or len(self.cur_idx) < 1:
-      return
-
-    assert len(self.cur_idx) == len(self.q_types)
-    idx_map = { str(i):self.cur_idx[i] for i in range(len(self.q_types)) }
-    np.savez(self.save_loc+f'/idx_{self.train_iter}', **idx_map) # Save this copy for logging purposes
-    np.savez(self.save_loc+f'/idx', **idx_map)                   # This is the main copy used for loading
-
-    if self.verbose:
-      print(f'Saved indices to {self.save_loc}/idx_{self.train_iter}.npz')
-
-  def save_results(self, filename='results', results=None):
-    results = self.results if results is None else results
-    if self.save_loc is None or results is None:
-      return
-
-    res_dict = {i:results[i] for i in range(len(results))}
-    data = { 'iter': self.train_iter, 'results': res_dict, 'done_query': self.done_query }
-    f = open(self.save_loc+f'/{filename}.json','w')
-    f.write(str(data))
-    f.close()
-
-    if self.verbose:
-      print(f'Saved results to {self.save_loc}/{filename}.json')
-
-  def save_model(self, model_idx, filename):
-    if self.save_loc is None:
-      return
-
-    torch.save(self.models[model_idx].cpu().state_dict(), self.save_loc+f'/model_{filename}_iter_{self.train_iter}.pt')
-    if self.verbose:
-      print(f'Saved trained model to {self.save_loc}/model_{filename}_iter_{self.train_iter}.pt')
-    
-    self.models[model_idx].to(device)
-
-  def load_model(self, location, to_device=True):
-    assert os.path.isfile(location)
-    try:
-      m = torch.load(location)
-      if to_device:
-        m.to(device)
-    except Exception:
-      if self.verbose:
-        print(f'Unable to load trained model. \n Location: {location}')
-      return None
-    
-    return m
-  
-  def load_run_id(self, location, run_id, load_if_possible=False, prompt=False):
-    run_id = '%.6d' % run_id
+  def rename_query(self):
     # File existence check
-    if not os.path.isfile(location+f'/{run_id}/run_details.json'):
+    if not os.path.isfile(f'{self.save_loc}/run_details.json'):
+      print(f'[Error] No run details found in run {self.run_id}.')
       return False
 
     # Read the metadata file
-    f = open(location+f'/{run_id}/run_details.json','r')
+    f = open(f'{self.save_loc}/run_details.json','r')
     metadata = ''.join(f.readlines())
     f.close()
     metadata = literal_eval(metadata)
 
-    # Check if the parameters is identical to the metadata
-    metadata_new = self.get_metadata(run_id)
-    if not metadata == metadata_new:
-      print(metadata)
-      print(metadata_new)
-      raise KeyError('Metadata is different, choose another run id')
-    
-    self.save_loc = location+f'/{run_id}'
-    
     # Update current parameters with the saved run progress
     # Read the results file if it exists (not the end of the world if it doesn't exist)
     # If we saved the model of a certain train iteration, test it and ask the user if we want to load it
@@ -253,8 +97,287 @@ class ActiveLearningComparison():
     self.run_id = run_id
     return True
 
+# Attempt active learning comparison
+class ActiveLearningComparison():
+  def __init__(self, data, test_data, model, optim, epochs=10,
+               learning_rate=0.01, query_percent=0.1, seed_percent=0.1, 
+               query_types=[], random_seed=42, scheduler=None, scheduler_type='epoch', 
+               loss_func=None, initial_class_sample=0, batch_size=128,
+               verbose=True, log_freq=1, log_level=2, run_id=None, load_from_another_seed=None):
+    
+    self.ds_name = data.root.split('/')[-1]
+    self.data = data
+    self.q_names = [q['name'] for q in query_types]
+    self.s_percent = seed_percent
+    self.test_data = test_data
+    self.epochs = epochs
+    self.train_iter = 0
+    self.lr = learning_rate
+    self.q_size = math.floor(len(data.data) * query_percent)
+    self.q_types = [q['func'] for q in query_types]
+    self.r_seed = random_seed
+    self.scheduler = scheduler
+    self.scheduler_type = scheduler_type
+    self.model = model
+    self.optim = optim
+    self.loss_fs = loss_func
+    self.batch_size = batch_size
+    self.verbose = verbose
+    self.copy_on_first_iter = True
+    self.log_freq = log_freq
+    self.log_level = log_level
+    self.initial_class_sample = initial_class_sample
+    self.done_query = False
+
+    self.to_train = [] # List indicating which indicies of models to train, used for only training certain models based on progress, first run etc
+    self.cur_idx = []
+    self.train_loaders = []
+    self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, pin_memory=True)
+    self.results = []
+    
+    # If given a run_id and Google Drive is mounted, check if we can load some current progress
+    loaded = False
+    if not (run_id is None or SAVE_LOC is None):
+      
+      # Load from another seed to create coherent results
+      if load_from_another_seed is not None:
+        self.copy_over_seed(SAVE_LOC+'/runs', run_id, load_from_another_seed)
+        
+      loaded = self.load_run_id(SAVE_LOC+'/runs', run_id, prompt=True)
+
+    # If Google Drive is mounted but we failed to load any data, create the files in Drive
+    if not (SAVE_LOC is None or loaded):
+      self.create_run_id(SAVE_LOC+'/runs', run_id)
+
+    # Initialise seed loaders if we are not continuing from before
+    if not loaded:
+      self.create_indicies()
+
+    self.init_models(loaded=loaded)
+
+    # Set seed for reproducibility
+    torch.manual_seed(self.r_seed)
+    np.random.seed(self.r_seed)
+
+  def create_indicies(self):
+    assert len(self.cur_idx) == 0
+    seed_loader, known_index = initialise_seed_dataloader(self.data, self.s_percent, min_samples=self.initial_class_sample, batch_size=self.batch_size)
+    for _ in range(len(self.q_types)):
+      self.train_loaders.append(seed_loader)
+      self.cur_idx.append(known_index)
+      self.results.append([])
+
+    self.save_progress()
+  
+  def get_metadata(self, run_id):
+    metadata = {
+        'run_id': run_id, 
+        'query_types': self.q_names, 
+        'model': self.model.__name__, 
+        'dataset': self.ds_name,
+        'seed_percent': self.s_percent
+    }
+    return metadata
+  
+  def copy_over_seed(self, location, run_id, other_run):
+    run_id = '%.6d' % run_id
+    other_run = '%.6d' % other_run
+    
+    if os.path.isfile(location+f'/{run_id}/run_details.json'):
+      if self.verbose:
+        print('Run details already initialised, proceed with loading as normal.')
+      return False
+    
+    # File existence check
+    if not os.path.isfile(location+f'/{other_run}/idx_0.npz'):
+      if self.verbose:
+        print(f"Failed t copy over seed frm run {run_id}, can't find its seed file (idx_0.npz).")
+      return False
+    
+    # Read the seed of the other run and replicate the seed with the correct number of queries
+    index_zip = np.load(location+f'/{other_run}/idx_0.npz')
+    idx_map = { str(i):index_zip["0"] for i in range(len(self.q_types)) }
+    os.makedirs(location+f'/{run_id}', mode=711, exist_ok=True)
+    np.savez(location+f'/{run_id}/idx_0', **idx_map)
+    np.savez(location+f'/{run_id}/idx', **idx_map)                   # This is the main copy used for loading
+    
+    # We also create the metadata to fool the loader into thinking that this is a loadable instance
+    metadata = self.get_metadata(run_id)
+    f = open(location+f'/{run_id}/run_details.json','w')
+    f.write(str(metadata))
+    f.close()
+   
+    
+    if not os.path.isfile(location+f'/{run_id}/idx.npz'):
+      if self.verbose:
+        print(f"Failed to copy over seed from run {other_run}, couldn't copy the file over.")
+      return False
+    
+    if self.verbose:
+      print(f'Successfully copied over seed from run {other_run}.')
+      
+    return True
+    
+  def create_run_id(self, location, run_id=None):
+    if run_id is None:
+      found_new_id = False
+      while not found_new_id:
+        run_id = '%.6d' % (np.random.randint(0, 1000000),)
+        # File existence check
+        if not os.path.isfile(location+f'/{run_id}/run_details.json'):
+          break
+    else:
+      if os.path.isfile(location+f'/{run_id}/run_details.json'):
+        raise FileExistsError('Unable to create run at selected id, directory already exists.')
+
+    run_id = '%.6d' % run_id if type(run_id) == int else run_id
+    os.makedirs(location+f'/{run_id}', mode=711, exist_ok=True)
+    
+    # Save the metadata to file
+    metadata = self.get_metadata(run_id)
+    f = open(location+f'/{run_id}/run_details.json','w')
+    f.write(str(metadata))
+    f.close()
+    self.save_loc = location+f'/{run_id}'
+    self.run_id = run_id
+    return
+
+  def save_progress(self):
+    self.save_indices()
+    self.save_results()
+
+  def save_indices(self):
+    if self.save_loc is None or len(self.cur_idx) < 1:
+      return
+
+    assert len(self.cur_idx) == len(self.q_types)
+    idx_map = { str(i):self.cur_idx[i] for i in range(len(self.q_types)) }
+    np.savez(self.save_loc+f'/idx_{self.train_iter}', **idx_map) # Save this copy for logging purposes
+    np.savez(self.save_loc+f'/idx', **idx_map)                   # This is the main copy used for loading
+
+    if self.verbose:
+      print(f'Saved indices to {self.save_loc}/idx_{self.train_iter}.npz')
+
+  def save_results(self, filename='results', results=None):
+    results = self.results if results is None else results
+    if self.save_loc is None or results is None:
+      return
+
+    res_dict = {i:results[i] for i in range(len(results))}
+    data = { 'iter': self.train_iter, 'results': res_dict, 'done_query': self.done_query }
+    f = open(self.save_loc+f'/{filename}.json','w')
+    f.write(str(data))
+    f.close()
+
+    if self.verbose:
+      print(f'Saved results to {self.save_loc}/{filename}.json')
+
+  def save_model(self, model_idx, filename):
+    if self.save_loc is None:
+      return
+
+    torch.save(self.models[model_idx].cpu().state_dict(), self.save_loc+f'/model_{filename}_iter_{self.train_iter}.pt')
+    if self.verbose:
+      print(f'Saved trained model to {self.save_loc}/model_{filename}_iter_{self.train_iter}.pt')
+    
+    self.models[model_idx].to(device)
+
+  def load_model(self, location, to_device=True):
+    assert os.path.isfile(location)
+    try:
+      m = self.model()
+      state_dict = torch.load(location)
+      m.load_state_dict(state_dict)
+      if to_device:
+        m.to(device)
+    except Exception:
+      if self.verbose:
+        print(f'Unable to load trained model. \n Location: {location}')
+      return None
+    
+    return m
+  
+  def load_run_id(self, location, run_id, load_if_possible=False, prompt=False):
+    run_id = '%.6d' % run_id
+    # File existence check
+    if not os.path.isfile(location+f'/{run_id}/run_details.json'):
+      return False
+
+    # Read the metadata file
+    f = open(location+f'/{run_id}/run_details.json','r')
+    metadata = ''.join(f.readlines())
+    f.close()
+    metadata = literal_eval(metadata)
+
+    # Check if the parameters is identical to the metadata
+    metadata_new = self.get_metadata(run_id)
+    if not metadata == metadata_new:
+      print(metadata)
+      print(metadata_new)
+      raise KeyError('Metadata is different, choose another run id')
+    
+    self.save_loc = location+f'/{run_id}'
+    
+    # Update current parameters with the saved run progress
+    # Read the results file if it exists (not the end of the world if it doesn't exist)
+    # If we saved the model of a certain train iteration, test it and ask the user if we want to load it
+    if os.path.isfile(self.save_loc+f'/results.json'):
+      f = open(self.save_loc+f'/results.json','r')
+      res_data = ''.join(f.readlines())
+      f.close()
+      res_data = literal_eval(res_data)
+      self.train_iter = res_data['iter']
+      self.results = list(res_data['results'].values())
+      self.done_query = res_data['done_query']
+      self.to_train = []
+      self.models = [None] * len(self.q_types)
+       
+      if load_if_possible or prompt:
+        for i in range(len(self.q_names)):
+          if os.path.isfile(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt'):
+            m = self.load_model(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
+            if m is None:
+              self.to_train.append(i)
+              continue
+            if not load_if_possible:
+              test_acc = check_accuracy(self.test_loader, m, verbose=False)
+              allow = ''
+              while allow.lower() not in ['y', 'n', 'yes', 'no']:
+                allow = input(f'Loaded model {self.q_names[i]} with test accuracy of {test_acc}, do you want to load this result and directly query the model? [Y/N]: ')
+              
+              if allow.lower() not in ['y', 'yes']:
+                self.to_train.append(i)
+                continue
+              
+            self.models[i] = m
+          else:
+            self.to_train.append(i)
+    else:
+      self.results = [[] for _ in range(len(self.q_types))]
+      self.to_train = [i for i in range(len(self.q_types))]
+
+    # Check if the indices file is loaded (important as without indicies, nothing to load, generate new ones instead)
+    if not os.path.isfile(self.save_loc+f'/idx.npz'):
+      self.create_indicies()
+      self.run_id = run_id
+      return True
+
+    # Read the indicies file
+    index_zip = np.load(self.save_loc+f'/idx.npz')
+    self.cur_idx = [index_zip[str(i)] for i in range(len(self.q_types))]
+    self.train_loaders = [create_dataloader_from_indices(self.data, 
+                                                         self.cur_idx[i], 
+                                                         batch_size=self.batch_size) for i in range(len(self.q_types))]
+
+    if self.verbose:
+      print(f'Successfully loaded previous run and indicies at iteration {self.train_iter}.')
+
+    self.run_id = run_id
+    return True
+
   def init_models(self, loaded=False):
-    if not loaded or len(self.models) != len(self.q_types):
+    
+    if not loaded or not hasattr(self, 'models') or len(self.models) != len(self.q_types):
       self.to_train = [i for i in range(len(self.q_types))]
       self.models   = [None] * len(self.q_types)
     self.optims     = [None] * len(self.q_types)
@@ -280,6 +403,8 @@ class ActiveLearningComparison():
     self.train_iter += 1
     if first_run:
       self.to_train = [0]
+      
+    res = None
 
     # Train each model
     for i in self.to_train:

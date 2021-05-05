@@ -1,0 +1,1 @@
+{'run_id': '300003', 'query_types': ['k-nearest-confidence-mix-15-n', 'k-nearest-confidence-mix-30-n', 'confidence-mix'], 'model': 'mobilenet_v2', 'dataset': 'covid', 'seed_percent': 0.1}
