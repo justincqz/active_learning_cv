@@ -43,10 +43,11 @@ if __name__ == '__main__':
   # ]
 
   query_types = [
-    {'name': 'conf-weighted-coreset-euclidean', 'func': SamplerFactory({
+    {'name': 'conf-weighted-coreset-euclidean-pca', 'func': SamplerFactory({
       'entropy': SamplerFactory.entropy.margin,
       'diversity': SamplerFactory.diversity.coreset,
       'batch_size': 128,
+      'use_pca': True,
       'options': {
         'weighted_by_score': True
       }
@@ -70,7 +71,7 @@ if __name__ == '__main__':
                                     batch_size=128,
                                     log_freq=10,
                                     log_level=2,
-                                    run_id=500001,
+                                    run_id=500002,
                                     load_from_another_seed=None)
 
   print("Initialised models.")

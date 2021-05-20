@@ -1,4 +1,5 @@
 from al_sampling.sampler import ActiveLearningSampler
+from al_sampling.utils import PCA
 from constants import ConfigManager
 
 import torch
@@ -32,6 +33,7 @@ class SamplerFactory(ActiveLearningSampler):
     self.batch_size = options.get('batch_size', 128)
     self.diversity_weighted = options.get('diversity_weighted', False) # If the diversity metric should be weighted by the scoring function
     self.diversity_mix = options.get('diversity_mix', 0.2) # Mix between top-n and a diversity metric
+    self.use_pca = options.get('use_pca', False)
     self.options = options
 
   def get_metrics(self, data, model):
@@ -156,6 +158,8 @@ class SamplerFactory(ActiveLearningSampler):
   # TODO: Verbose
   def query(self, query_size, known_data_idx, data, model, writer=None):
     scores, features = self.get_metrics(data, model)
+    if self.use_pca:
+      features = PCA().fit_transform(features)
     if self.diversity_method is self.diversity.coreset:
       return self.coreset(query_size, known_data_idx, scores, features, **self.options)
     elif self.diversity_method is self.diversity.random:

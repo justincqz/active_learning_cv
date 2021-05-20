@@ -1,6 +1,8 @@
 from al_sampling.uniform_random import UniformRandomSampler
 from torch.utils.data import sampler, DataLoader
 
+import torch
+
 import numpy as np
 import pandas as pd
 import math
@@ -33,3 +35,17 @@ def initialise_seed_dataloader(data, seed_percent=0.2, batch_size=128, min_sampl
 class CustomDataLoader():
   def __init__(self, image, labels):
     self.dataset = list(zip(image, labels))
+    
+class PCA():
+  def __init__(self, n_components=2):
+    self.c = n_components
+  
+  def fit_transform(self, X):
+    centered_x = X - torch.mean(X, dim=0)
+    cov_mtx = torch.mm(centered_x.T, centered_x) / (centered_x.shape[0] - 1)
+    eigen_values, eigen_vectors = torch.eig(cov_mtx, eigenvectors=True)
+    eigen_sorted_index = torch.argsort(eigen_values[:,0], descending=True)
+    eigen_vectors_sorted = eigen_vectors[:,eigen_sorted_index]
+    component_vector = eigen_vectors_sorted[:,0:self.c]
+    out = torch.mm(component_vector.T, centered_x.T).T
+    return out
