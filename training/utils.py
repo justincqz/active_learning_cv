@@ -60,9 +60,9 @@ class ModelPlusOutput(nn.Module):
   def forward(self, x):
     return self.out(self.og_model(x))
 
-def output_wrapper_factory(original_model, input_shape, output_shape):
+def output_wrapper_factory(original_model, input_shape, output_shape, feature_shape=0):
   def call():
-    return ModelPlusOutput(original_model, input_shape, output_shape)
+    return ModelPlusOutput(original_model, input_shape, output_shape, intermediate_dim=feature_shape)
   
   call.__name__ = original_model.__name__
   return call
