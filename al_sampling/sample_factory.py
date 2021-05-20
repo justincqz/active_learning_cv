@@ -27,11 +27,11 @@ class SamplerFactory(ActiveLearningSampler):
 
   def __init__(self, options=None) -> None:
     super().__init__()
-    self.scoring_method = options.get('entropy', default=self.entropy.confidence)
-    self.diversity_method = options.get('diversity', default=self.diversity.random)
-    self.batch_size = options.get('batch_size', default=128)
-    self.diversity_weighted = options.get('diversity_weighted', default=False) # If the diversity metric should be weighted by the scoring function
-    self.diversity_mix = options.get('diversity_mix', default=0.2) # Mix between top-n and a diversity metric
+    self.scoring_method = options.get('entropy', self.entropy.confidence)
+    self.diversity_method = options.get('diversity', self.diversity.random)
+    self.batch_size = options.get('batch_size', 128)
+    self.diversity_weighted = options.get('diversity_weighted', False) # If the diversity metric should be weighted by the scoring function
+    self.diversity_mix = options.get('diversity_mix', 0.2) # Mix between top-n and a diversity metric
     self.options = options
 
   def get_metrics(self, data, model):
@@ -45,7 +45,7 @@ class SamplerFactory(ActiveLearningSampler):
     output_layer = nn.Sequential(*last_module)
     
     with torch.no_grad() if self.scoring_method is not self.entropy.gradients else null_ctx():
-      for idxs in range([indices[x:x+self.batch_size] for x in range(0, len(data), self.batch_size)]):
+      for idxs in [indices[x:x+self.batch_size] for x in range(0, len(data), self.batch_size)]:
         t_stack = []
         for i in idxs:
           t_stack.append(data[i][0])
@@ -54,8 +54,8 @@ class SamplerFactory(ActiveLearningSampler):
         x = torch.stack(t_stack)
         x = x.to(device=device)
         
-        feature = feature_layer(x)
-        features.append(feature.squeeze().cpu())
+        feature = feature_layer(x).squeeze()
+        features.append(feature.cpu())
         logits = output_layer(feature)
         
         if self.scoring_method is self.entropy.confidence:
@@ -94,7 +94,8 @@ class SamplerFactory(ActiveLearningSampler):
     if distance_metric is 'euclidean':
       distance_mtx = torch.cdist(features, known_features).squeeze(0)
     elif distance_metric is 'cosine':
-      distance_mtx = None
+      # distance_mtx = None
+      raise SystemError("Unimplemented.")
     else:
       raise ValueError("Distance metric not supported, choose either 'euclidean' or 'cosine'.")
 
@@ -155,9 +156,9 @@ class SamplerFactory(ActiveLearningSampler):
   # TODO: Verbose
   def query(self, query_size, known_data_idx, data, model, writer=None):
     scores, features = self.get_metrics(data, model)
-    if self.scoring_method is self.diversity.coreset:
+    if self.diversity_method is self.diversity.coreset:
       return self.coreset(query_size, known_data_idx, scores, features, **self.options)
-    elif self.scoring_method is self.diversity.random:
+    elif self.diversity_method is self.diversity.random:
       active_n = int(query_size * (1 - self.diversity_mix))
       passive_n = query_size - active_n
       if active_n != 0:
@@ -165,7 +166,7 @@ class SamplerFactory(ActiveLearningSampler):
       if passive_n != 0:
         known_data_r = self.random(passive_n, known_data_r)
       return known_data_r
-    elif self.scoring_method is self.diversity.kmpp:
+    elif self.diversity_method is self.diversity.kmpp:
       raise SystemError('Unimplemented.')
     else:
       raise ValueError("Chosen diversity metric not supported.")

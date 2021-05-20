@@ -5,6 +5,7 @@ from training.utils import output_wrapper_factory, mobilenet_wrapper_factory
 from data_processing.cifar10 import Cifar10DS
 from data_processing.dog import DogDS
 from data_processing.covid import CovidDS
+from al_sampling.sample_factory import SamplerFactory
 from al_sampling.uniform_random import UniformRandomSampler
 from al_sampling.confidence import MarginSampler
 from al_sampling.k_nearest import KNearestSampler
@@ -12,7 +13,6 @@ from al_sampling.mixture import MixtureSampler
 from al_sampling.k_center_greedy import KCenterGreedy
 from constants import ConfigManager
 
-import argparse
 import torchvision.models as models
 from models import ResNet20
 import torch.optim as optim
@@ -31,43 +31,54 @@ if __name__ == '__main__':
   print("Initialised datasets.")
   
   # Setup the class which handles training and querying
+  # query_types = [
+  #   {'name': 'random', 'func': UniformRandomSampler()},
+  #   {'name': 'confidence', 'func': MarginSampler(batch_size=256)},
+  #   {'name': 'k-nearest-confidence', 'func': KNearestSampler(batch_size=256, neighbours=15)},
+  #   {'name': 'k-center', 'func': KCenterGreedy(batch_size=256)},
+  #   {'name': 'k-nearest-confidence-mix-15-n', 'func': MixtureSampler(KNearestSampler(batch_size=256, neighbours=15), weight=0.8, verbose=True)},
+  #   {'name': 'k-nearest-confidence-mix-30-n', 'func': MixtureSampler(KNearestSampler(batch_size=256, neighbours=30), weight=0.8, verbose=True)},
+  #   {'name': 'confidence-mix', 'func': MixtureSampler(MarginSampler(batch_size=256), weight=0.8, verbose=True)},
+  #   {'name': 'k-center-mix', 'func': MixtureSampler(KCenterGreedy(batch_size=256), weight=0.8, verbose=True)},
+  # ]
+
   query_types = [
-    {'name': 'random', 'func': UniformRandomSampler()},
-    {'name': 'confidence', 'func': MarginSampler(batch_size=256)},
-    {'name': 'k-nearest-confidence', 'func': KNearestSampler(batch_size=256, neighbours=15)},
-    {'name': 'k-center', 'func': KCenterGreedy(batch_size=256)},
-    {'name': 'k-nearest-confidence-mix-15-n', 'func': MixtureSampler(KNearestSampler(batch_size=256, neighbours=15), weight=0.8, verbose=True)},
-    {'name': 'k-nearest-confidence-mix-30-n', 'func': MixtureSampler(KNearestSampler(batch_size=256, neighbours=30), weight=0.8, verbose=True)},
-    {'name': 'confidence-mix', 'func': MixtureSampler(MarginSampler(batch_size=256), weight=0.8, verbose=True)},
-    {'name': 'k-center-mix', 'func': MixtureSampler(KCenterGreedy(batch_size=256), weight=0.8, verbose=True)},
+    {'name': 'conf-weighted-coreset-euclidean', 'func': SamplerFactory({
+      'entropy': SamplerFactory.entropy.margin,
+      'diversity': SamplerFactory.diversity.coreset,
+      'batch_size': 128,
+      'options': {
+        'weighted_by_score': True
+      }
+    })}
   ]
 
   # Setup the runner
-  # runner = ActiveLearningComparison(dset.train,
-  #                                   dset.test,
-  #                                   ResNet20,
-  #                                   # mobilenet_wrapper_factory(models.mobilenet_v2, 10),
-  #                                   optim.SGD,
-  #                                   epochs=70,
-  #                                   learning_rate=0.03,
-  #                                   query_percent=0.1,
-  #                                   seed_percent=0.1,
-  #                                   query_types=query_types,
-  #                                   scheduler=optim.lr_scheduler.ReduceLROnPlateau,
-  #                                   scheduler_type='train_acc',
-  #                                   # initial_class_sample=200,
-  #                                   batch_size=128,
-  #                                   log_freq=10,
-  #                                   log_level=2,
-  #                                   run_id=400004,
-  #                                   load_from_another_seed=None)
+  runner = ActiveLearningComparison(dset.train,
+                                    dset.test,
+                                    ResNet20,
+                                    # mobilenet_wrapper_factory(models.mobilenet_v2, 10),
+                                    optim.SGD,
+                                    epochs=70,
+                                    learning_rate=0.03,
+                                    query_percent=0.1,
+                                    seed_percent=0.1,
+                                    query_types=query_types,
+                                    scheduler=optim.lr_scheduler.ReduceLROnPlateau,
+                                    scheduler_type='train_acc',
+                                    # initial_class_sample=200,
+                                    batch_size=128,
+                                    log_freq=10,
+                                    log_level=2,
+                                    run_id=500001,
+                                    load_from_another_seed=None)
 
-  # print("Initialised models.")
+  print("Initialised models.")
   
-  # query_iterations = 3
-  # for i in range(query_iterations):
-  #   print(f'Iteration: {runner.train_iter}')
-  #   runner.run_train_and_query()
+  query_iterations = 3
+  for i in range(query_iterations):
+    print(f'Iteration: {runner.train_iter}')
+    runner.run_train_and_query()
   
   # runner.run_validation(iterations=5, log_freq=1, log_level=2, epochs=90)
   
@@ -117,5 +128,3 @@ if __name__ == '__main__':
   #                         # mobilenet_wrapper_factory(models.mobilenet_v2, 3), 
   #                         dset.query)
   # tsne_plot.generate_tsne(idx=[0, 3, 6])
-
-  input('done')

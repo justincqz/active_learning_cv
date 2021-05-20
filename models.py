@@ -33,7 +33,7 @@ class ResNet20(nn.Module):
     self.in_c = 16
 
     self.layer1 = nn.Sequential(
-        nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),
+        nn.Conv2d(in_c, 16, kernel_size=3, stride=1, padding=1),
         nn.BatchNorm2d(16),
         nn.ReLU(inplace=True)
     )
