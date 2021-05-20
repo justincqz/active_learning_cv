@@ -1,13 +1,18 @@
 from data_processing.dataprep import DataPrep
+from data_processing.utils import ToDevice
+from constants import ConfigManager
 
 import torchvision.transforms as T
 import torchvision.datasets as dset
+
+device = ConfigManager.device
 
 class Cifar10DS(DataPrep):
   def __init__(self, data_dir=None, train_transform=None, test_transform=None):
     self.data_dir = './data/cifar10' if data_dir is None else data_dir
     self.train_transform = train_transform
     self.test_transform = test_transform
+    self.initialise_datasets()
   
   def initialise_datasets(self):
     # Set parameters for data loading
@@ -28,4 +33,5 @@ class Cifar10DS(DataPrep):
 
     # Download the Cifar10 dataset
     self.train = dset.CIFAR10(self.data_dir, train=True, transform=TRAIN_TRANSFORM, download=True)
+    self.query = dset.CIFAR10(self.data_dir, train=True, transform=TEST_TRANSFORM)
     self.test = dset.CIFAR10(self.data_dir, train=False, transform=TEST_TRANSFORM)

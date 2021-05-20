@@ -35,7 +35,9 @@ class KNearestSampler(ActiveLearningSampler):
         if remove_last_layer_for_feature:
           feat = nn.Sequential(*list(model.children())[:-1])(x)
           feat = nn.functional.avg_pool2d(feat, feat.shape[-1]).squeeze()
-          out = nn.Sequential(*list(model.children())[-1])(feat).view(1, -1)
+          last_layer = list(model.children())[-1]
+          last_layer = last_layer if hasattr(last_layer, '__iter__') else [last_layer]
+          out = nn.Sequential(*last_layer)(feat).view(1, -1)
           features.append(feat.cpu())
         else:
           out = model(x)

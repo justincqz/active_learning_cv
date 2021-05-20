@@ -46,11 +46,16 @@ def get_lr(optimizer):
     return param_group['lr']
   
 class ModelPlusOutput(nn.Module):
-  def __init__(self, original_model, input_shape, output_shape):
+  def __init__(self, original_model, input_shape, output_shape, intermediate_dim=0):
     super(ModelPlusOutput, self).__init__()
     self.__name__ = original_model.__name__
     self.og_model = original_model()
-    self.out      = nn.Linear(input_shape, output_shape)
+    tail = []
+    if intermediate_dim > 0:
+      tail.append(nn.Linear(input_shape, intermediate_dim))
+      input_shape = intermediate_dim
+    tail.append(nn.Linear(input_shape, output_shape))
+    self.out = nn.Sequential(tail)
   
   def forward(self, x):
     return self.out(self.og_model(x))

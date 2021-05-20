@@ -132,7 +132,7 @@ class ActiveLearningComparison():
     self.to_train = [] # List indicating which indicies of models to train, used for only training certain models based on progress, first run etc
     self.cur_idx = []
     self.train_loaders = []
-    self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, pin_memory=True)
+    self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size)
     self.results = []
     
     # If given a run_id and Google Drive is mounted, check if we can load some current progress
@@ -142,7 +142,7 @@ class ActiveLearningComparison():
       # Load from another seed to create coherent results
       if load_from_another_seed is not None:
         self.copy_over_seed(SAVE_LOC+'/runs', run_id, load_from_another_seed)
-        
+
       loaded = self.load_run_id(SAVE_LOC+'/runs', run_id, prompt=True)
 
     # If Google Drive is mounted but we failed to load any data, create the files in Drive
@@ -331,24 +331,30 @@ class ActiveLearningComparison():
       self.done_query = res_data['done_query']
       self.to_train = []
       self.models = [None] * len(self.q_types)
-       
+      
       if load_if_possible or prompt:
+        first_prompt = False
+        want_models = True
         for i in range(len(self.q_names)):
-          if os.path.isfile(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt'):
+          if os.path.isfile(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt') and want_models:
+            if prompt and not first_prompt:
+              want_models = ask_bool_prompt('Found models that can be loaded for querying. Do you want to load these models? [Y/N]:')
+              first_prompt = True
+              if not want_models:
+                self.to_train.append(i)
+                continue
+            
             m = self.load_model(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
             if m is None:
               self.to_train.append(i)
               continue
             if not load_if_possible:
               test_acc = check_accuracy(self.test_loader, m, verbose=False)
-              allow = ''
-              while allow.lower() not in ['y', 'n', 'yes', 'no']:
-                allow = input(f'Loaded model {self.q_names[i]} with test accuracy of {test_acc}, do you want to load this result and directly query the model? [Y/N]: ')
-              
-              if allow.lower() not in ['y', 'yes']:
+              allow = ask_bool_prompt(f'Loaded model {self.q_names[i]} with test accuracy of {test_acc}, do you want to load this result and directly query the model? [Y/N]:')
+              if not allow:
                 self.to_train.append(i)
                 continue
-              
+
             self.models[i] = m
           else:
             self.to_train.append(i)
@@ -400,7 +406,6 @@ class ActiveLearningComparison():
     assert len([0 for i in self.schedulers if i is None]) == 0
 
   def run_train(self, save=True, first_run=False):
-    self.train_iter += 1
     if first_run:
       self.to_train = [0]
       
@@ -498,6 +503,7 @@ class ActiveLearningComparison():
 
     # Reset the models
     self.init_models()
+    self.train_iter += 1
 
   def run_train_and_query(self):
     is_first_run = self.copy_on_first_iter and self.train_iter == 0
@@ -515,10 +521,10 @@ class ActiveLearningComparison():
     count = 0
     found_file = os.path.isfile(self.save_loc+f'/{filename}.json')
     while found_file:
-      if os.path.isfile(self.save_loc+f'/{filename}_{str(count)}.json'):
+      if os.path.isfile(self.save_loc+f'/{filename}{count}.json'):
         count += 1
       else:
-        filename += str(count)
+        filename = f'{filename}{count}'
         break
 
     for iter in range(iterations):
@@ -558,3 +564,10 @@ class ActiveLearningComparison():
         self.save_results(filename=filename, results=results)
     
     return res
+
+def ask_bool_prompt(msg: str) -> bool:
+  ans = input(msg+' ')
+  while ans.lower() not in ['y', 'n', 'yes', 'no']:
+    print('That input could not be recognised. Accepted inputs are [Y, yes, y] and [N, n, no].')
+    ans = input(msg+' ')
+  return ans.lower() in ['y', 'yes']

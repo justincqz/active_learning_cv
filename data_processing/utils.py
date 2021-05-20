@@ -1,3 +1,4 @@
+from torch import is_tensor
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -7,6 +8,17 @@ class MultiToBinaryLabel():
 
   def __call__(self, label):
     return int(label in self.p)
+
+  def __repr__(self):
+    return self.__class__.__name__ + '()'
+
+class ToDevice():
+  def __init__(self, device):
+    self.device = device
+
+  def __call__(self, label):
+    assert is_tensor(label)
+    return label.to(self.device)
 
   def __repr__(self):
     return self.__class__.__name__ + '()'
