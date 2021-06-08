@@ -7,6 +7,7 @@ class ResidualBlock(nn.Module):
 
     super(ResidualBlock, self).__init__()
     self.p = dropout_p
+    self.always_drop = always_drop
 
     self.main = nn.Sequential(
         nn.Conv2d(in_c, out_c, kernel_size=3, stride=stride, padding=1),
@@ -23,7 +24,7 @@ class ResidualBlock(nn.Module):
     out = self.main(x)
     out += self.shortcut(x)
     out = F.relu(out)
-    out = out if self.p is None else F.dropout(out, self.p, always_drop or torch.is_grad_enabled(), True)
+    out = out if self.p is None else F.dropout(out, self.p, self.always_drop or torch.is_grad_enabled(), True)
     return out
 
 class ResNet20(nn.Module):

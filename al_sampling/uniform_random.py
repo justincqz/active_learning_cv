@@ -1,7 +1,7 @@
-from al_sampling.sampler import ActiveLearningSampler
+from al_sampling.sampler import BaseSampler
 import numpy as np
 
-class UniformRandomSampler(ActiveLearningSampler):
+class UniformRandomSampler(BaseSampler):
   @staticmethod
   def query_(query_size, known_data_idx, data, model, writer=None):
     indices = np.arange(len(data))

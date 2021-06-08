@@ -3,12 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from al_sampling.sampler import ActiveLearningSampler
+from al_sampling.sampler import BaseSampler
 from constants import ConfigManager
 
 device = ConfigManager.device
 
-class KNearestSampler(ActiveLearningSampler):
+class KNearestSampler(BaseSampler):
   def __init__(self, criteria='conf', batch_size=128, neighbours=5, verbose=True):
     if not (criteria == 'conf' or criteria == 'loss'):
       raise ValueError("Invalid criteria selected, choose either 'conf' or 'loss'.")

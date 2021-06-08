@@ -1,4 +1,4 @@
-from al_sampling.sampler import ActiveLearningSampler
+from al_sampling.sampler import BaseSampler
 from constants import ConfigManager
 import torch
 
@@ -10,7 +10,7 @@ import math
 
 device = ConfigManager.device
 
-class KCenterGreedy(ActiveLearningSampler):
+class KCenterGreedy(BaseSampler):
   def __init__(self, batch_size=128, verbose=True):
     self.batch_size = batch_size
     self.verbose = verbose

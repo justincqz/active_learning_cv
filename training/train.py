@@ -1,4 +1,4 @@
-from training.utils import check_accuracy, get_lr
+from training.utils import check_accuracy, get_lr, add_pr_curves
 from constants import ConfigManager
 
 import torch
@@ -8,7 +8,7 @@ device = ConfigManager.device
 USE_TB = ConfigManager.USE_TB
 
 def train_part(model, optimizer, train_data, test_data, epochs=1, scheduler=None, scheduler_type='epoch', 
-               warmup=0, writer=None, log_freq=1, log_level=2, loss_f=F.cross_entropy):
+               warmup=0, writer=None, log_freq=1, log_level=2, loss_f=F.cross_entropy, log_start=0):
   """    
   Inputs:
   - model: A PyTorch Module giving the model to train.
@@ -55,7 +55,7 @@ def train_part(model, optimizer, train_data, test_data, epochs=1, scheduler=None
     train_acc = 100 * float(num_correct) / num_samples
 
     # Calculate metrics based on the log frequency
-    if (log_freq > -1 and (e + 1) % log_freq == 0) or (e + 1) == epochs:
+    if (log_freq > -1 and (e + 1) % log_freq == 0 and (e >= log_start)) or ((e + 1) == epochs):
       hist.append({'epoch': e, 'lr': get_lr(optimizer), 'loss': loss.item()})
       # Checks the loss, test accuracy and train accuracy based on log level
       if log_level > 0:
@@ -86,6 +86,9 @@ def train_part(model, optimizer, train_data, test_data, epochs=1, scheduler=None
 
           if log_level > 1:
             test_w.add_scalar("Curves/accuracy", acc, e)
+
+            if (e + 1) == epochs:
+              add_pr_curves(test_data, model, test_w)
 
         else:
           writer.add_scalar("Curves/loss", loss.item(), e)
