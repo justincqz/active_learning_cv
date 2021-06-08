@@ -22,81 +22,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# Manager class used for housekeeping and exploring results
-class ResultsManager():
-  def __init__(self, run_id):
-    self.run_id = '%.6d' % run_id
-    self.save_loc = f'{SAVE_LOC}/{run_id}'
-  
-  def rename_query(self):
-    # File existence check
-    if not os.path.isfile(f'{self.save_loc}/run_details.json'):
-      print(f'[Error] No run details found in run {self.run_id}.')
-      return False
-
-    # Read the metadata file
-    f = open(f'{self.save_loc}/run_details.json','r')
-    metadata = ''.join(f.readlines())
-    f.close()
-    metadata = literal_eval(metadata)
-
-    # Update current parameters with the saved run progress
-    # Read the results file if it exists (not the end of the world if it doesn't exist)
-    # If we saved the model of a certain train iteration, test it and ask the user if we want to load it
-    if os.path.isfile(self.save_loc+f'/results.json'):
-      f = open(self.save_loc+f'/results.json','r')
-      res_data = ''.join(f.readlines())
-      f.close()
-      res_data = literal_eval(res_data)
-      self.train_iter = res_data['iter']
-      self.results = list(res_data['results'].values())
-      self.done_query = res_data['done_query']
-      self.to_train = []
-      self.models = [None] * len(self.q_types)
-       
-      if load_if_possible or prompt:
-        for i in range(len(self.q_names)):
-          if os.path.isfile(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt'):
-            m = self.load_model(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
-            if m is None:
-              self.to_train.append(i)
-              continue
-            if not load_if_possible:
-              test_acc = check_accuracy(self.test_data, m, verbose=False)
-              allow = ''
-              while allow.lower() not in ['y', 'n', 'yes', 'no']:
-                allow = input(f'Loaded model {self.q_names[i]} with test accuracy of {test_acc}, do you want to load this result and directly query the model? [Y/N]: ')
-              
-              if allow.lower() not in ['y', 'yes']:
-                self.to_train.append(i)
-                continue
-              
-            self.models[i] = m
-          else:
-            self.to_train.append(i)
-    else:
-      self.results = [[] for _ in range(len(self.q_types))]
-      self.to_train = [i for i in range(len(self.q_types))]
-
-    # Check if the indices file is loaded (important as without indicies, nothing to load, generate new ones instead)
-    if not os.path.isfile(self.save_loc+f'/idx.npz'):
-      self.create_indicies()
-      self.run_id = run_id
-      return True
-
-    # Read the indicies file
-    index_zip = np.load(self.save_loc+f'/idx.npz')
-    self.cur_idx = [index_zip[str(i)] for i in range(len(self.q_types))]
-    self.train_loaders = [create_dataloader_from_indices(self.data, 
-                                                         self.cur_idx[i], 
-                                                         batch_size=self.batch_size) for i in range(len(self.q_types))]
-
-    if self.verbose:
-      print(f'Successfully loaded previous run and indicies at iteration {self.train_iter}.')
-
-    self.run_id = run_id
-    return True
-
 # Attempt active learning comparison
 class ActiveLearningComparison():
   def __init__(self, data, test_data, model, optim, epochs=10,
@@ -132,7 +57,7 @@ class ActiveLearningComparison():
     self.to_train = [] # List indicating which indicies of models to train, used for only training certain models based on progress, first run etc
     self.cur_idx = []
     self.train_loaders = []
-    self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, pin_memory=True)
+    self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size)
     self.results = []
     
     # If given a run_id and Google Drive is mounted, check if we can load some current progress
@@ -142,7 +67,7 @@ class ActiveLearningComparison():
       # Load from another seed to create coherent results
       if load_from_another_seed is not None:
         self.copy_over_seed(SAVE_LOC+'/runs', run_id, load_from_another_seed)
-        
+
       loaded = self.load_run_id(SAVE_LOC+'/runs', run_id, prompt=True)
 
     # If Google Drive is mounted but we failed to load any data, create the files in Drive
@@ -331,24 +256,30 @@ class ActiveLearningComparison():
       self.done_query = res_data['done_query']
       self.to_train = []
       self.models = [None] * len(self.q_types)
-       
+      
       if load_if_possible or prompt:
+        first_prompt = False
+        want_models = True
         for i in range(len(self.q_names)):
-          if os.path.isfile(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt'):
+          if os.path.isfile(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt') and want_models:
+            if prompt and not first_prompt:
+              want_models = ask_bool_prompt('Found models that can be loaded for querying. Do you want to load these models? [Y/N]:')
+              first_prompt = True
+              if not want_models:
+                self.to_train.append(i)
+                continue
+            
             m = self.load_model(f'{self.save_loc}/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
             if m is None:
               self.to_train.append(i)
               continue
             if not load_if_possible:
               test_acc = check_accuracy(self.test_loader, m, verbose=False)
-              allow = ''
-              while allow.lower() not in ['y', 'n', 'yes', 'no']:
-                allow = input(f'Loaded model {self.q_names[i]} with test accuracy of {test_acc}, do you want to load this result and directly query the model? [Y/N]: ')
-              
-              if allow.lower() not in ['y', 'yes']:
+              allow = ask_bool_prompt(f'Loaded model {self.q_names[i]} with test accuracy of {test_acc}, do you want to load this result and directly query the model? [Y/N]:')
+              if not allow:
                 self.to_train.append(i)
                 continue
-              
+
             self.models[i] = m
           else:
             self.to_train.append(i)
@@ -400,7 +331,6 @@ class ActiveLearningComparison():
     assert len([0 for i in self.schedulers if i is None]) == 0
 
   def run_train(self, save=True, first_run=False):
-    self.train_iter += 1
     if first_run:
       self.to_train = [0]
       
@@ -498,13 +428,14 @@ class ActiveLearningComparison():
 
     # Reset the models
     self.init_models()
+    self.train_iter += 1
 
   def run_train_and_query(self):
     is_first_run = self.copy_on_first_iter and self.train_iter == 0
     self.run_train(save=True, first_run=is_first_run)
     self.run_query()
 
-  def run_validation(self, iterations=3, log_freq=None, log_level=None, epochs=None):
+  def run_validation(self, iterations=3, log_freq=None, log_level=None, epochs=None, log_start=0):
     results = [[] for _ in range(len(self.q_types))]
     l_freq  = log_freq  if not log_freq  is None else self.log_freq
     l_level = log_level if not log_level is None else self.log_level
@@ -515,18 +446,18 @@ class ActiveLearningComparison():
     count = 0
     found_file = os.path.isfile(self.save_loc+f'/{filename}.json')
     while found_file:
-      if os.path.isfile(self.save_loc+f'/{filename}_{str(count)}.json'):
+      if os.path.isfile(self.save_loc+f'/{filename}{count}.json'):
         count += 1
       else:
-        filename += str(count)
+        filename = f'{filename}{count}'
         break
 
-    for iter in range(iterations):
+    for it in range(iterations):
       # Initialise and reset model, optimisers and schedulers
       self.init_models()
       
       if self.verbose:
-        print(f'Validation iteration: {iter}')
+        print(f'Validation iteration: {it}')
         log_timestamp()
 
       for i in range(len(self.models)):
@@ -536,9 +467,9 @@ class ActiveLearningComparison():
 
         # Tensorboard Logging
         if USE_TB:
-          loss_w = SummaryWriter(f'{LOG_DIR}/{self.run_id}/{self.q_names[i]}/val-iter-{self.train_iter}/loss')
-          train_w = SummaryWriter(f'{LOG_DIR}/{self.run_id}/{self.q_names[i]}/val-iter-{self.train_iter}/train')
-          test_w = SummaryWriter(f'{LOG_DIR}/{self.run_id}/{self.q_names[i]}/val-iter-{self.train_iter}/test')
+          loss_w = SummaryWriter(f'{LOG_DIR}/{self.run_id}/{self.q_names[i]}/val-iter-{it}/loss')
+          train_w = SummaryWriter(f'{LOG_DIR}/{self.run_id}/{self.q_names[i]}/val-iter-{it}/train')
+          test_w = SummaryWriter(f'{LOG_DIR}/{self.run_id}/{self.q_names[i]}/val-iter-{it}/test')
           writer = (loss_w, train_w, test_w)
         else:
           writer = None
@@ -552,9 +483,17 @@ class ActiveLearningComparison():
                   scheduler=self.schedulers[i],
                   scheduler_type=self.scheduler_type,
                   log_freq=l_freq,
-                  log_level=l_level)
+                  log_level=l_level,
+                  log_start=log_start)
 
         results[i].append(res)
         self.save_results(filename=filename, results=results)
     
     return res
+
+def ask_bool_prompt(msg: str) -> bool:
+  ans = input(msg+' ')
+  while ans.lower() not in ['y', 'n', 'yes', 'no']:
+    print('That input could not be recognised. Accepted inputs are [Y, yes, y] and [N, n, no].')
+    ans = input(msg+' ')
+  return ans.lower() in ['y', 'yes']

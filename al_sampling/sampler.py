@@ -1,6 +1,6 @@
 import abc
 
-class ActiveLearningSampler(object):
+class BaseSampler(object):
   __metaclass__ = abc.ABCMeta
   
   @abc.abstractmethod

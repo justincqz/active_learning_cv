@@ -1,7 +1,7 @@
 from al_sampling.uniform_random import UniformRandomSampler
-from al_sampling.sampler import ActiveLearningSampler
+from al_sampling.sampler import BaseSampler
 
-class MixtureSampler(ActiveLearningSampler):
+class MixtureSampler(BaseSampler):
   def __init__(self, first_sampler, second_sampler=None, weight=0.5, verbose=True):
     self.first_sampler = first_sampler
     self.second_sampler = UniformRandomSampler() if second_sampler is None else second_sampler

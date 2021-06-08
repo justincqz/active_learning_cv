@@ -4,7 +4,6 @@ from scipy.io import loadmat
 from PIL import Image
 
 import torchvision.transforms as T
-import torchvision.datasets as dset
 
 import os
 import torch

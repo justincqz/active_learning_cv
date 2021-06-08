@@ -1,4 +1,4 @@
-from al_sampling.sampler import ActiveLearningSampler
+from al_sampling.sampler import BaseSampler
 from constants import ConfigManager
 import torch
 import torch.nn.functional as F
@@ -9,7 +9,7 @@ import math
 
 device = ConfigManager.device
 
-class MarginSampler(ActiveLearningSampler):
+class MarginSampler(BaseSampler):
   def __init__(self, weights=None, percentiles=None, margin=True, batch_size=128, verbose=True):
     self.weights = [0.6, 0.3, 0.1] if weights is None else weights
     self.percentiles = [30, 70] if percentiles is None else percentiles

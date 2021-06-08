@@ -126,6 +126,7 @@ class CovidDS(DataPrep):
     ]) if self.test_transform is None else self.test_transform
 
     self.train = CovidDataset(self.train_df, self.data_dir, TRAIN_TRANSFORM, shuffle=False, train=True, classes=self.classes)
+    self.query = CovidDataset(self.train_df, self.data_dir, TEST_TRANSFORM, shuffle=False, train=True, classes=self.classes)
     self.test = CovidDataset(self.test_df, self.data_dir, TEST_TRANSFORM, classes=self.classes)
     
     
