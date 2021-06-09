@@ -26,7 +26,7 @@ class CovidDataset(Dataset):
       self.frame = self.frame.sample(frac= 1)
     self.root_dir = root_dir
     self.transform = transform
-    self.classes = list(range(120)) if classes is None else classes
+    self.classes = list(range(3)) if classes is None else classes
     self.data = np.array(self.frame.iloc[:, -2])
     self.targets = np.array(self.frame.iloc[:, -1])
     self.train = train
