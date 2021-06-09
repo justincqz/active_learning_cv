@@ -372,7 +372,7 @@ if __name__ == '__main__':
     print(f'Iteration: {runner.train_iter}')
     runner.run_train_and_query()
   
-  runner.run_validation(iterations=5, log_freq=2, log_level=2, epochs=20)
+  runner.run_validation(iterations=5, log_freq=2, log_level=2, epochs=20, log_start=12)
 
   # print(f'Iteration: {runner.train_iter}')
   # runner.run_train_and_query()

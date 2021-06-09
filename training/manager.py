@@ -412,7 +412,7 @@ class ActiveLearningComparison():
         targets = np.array(self.data.targets)[new_idx]
         temp_df = pd.DataFrame(zip(range(len(targets)), targets), columns=['idx', 'label'])
         temp_df = temp_df.groupby('label').count()
-        temp_df['class'] = self.data.classes
+        temp_df['class'] = self.data.classes[temp_df.index]
         plt.bar(range(len(temp_df)), temp_df['idx'], align='center')
         plt.xticks(range(len(temp_df)), temp_df['class'], size='small')
         plt.title(f'New Image Class Counts for {self.q_names[i]}')
