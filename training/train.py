@@ -1,4 +1,4 @@
-from training.utils import check_accuracy, get_lr, add_pr_curves
+from training.utils import check_accuracy, get_lr, add_pr_curves, save_model
 from constants import ConfigManager
 
 import torch
@@ -8,7 +8,8 @@ device = ConfigManager.device
 USE_TB = ConfigManager.USE_TB
 
 def train_part(model, optimizer, train_data, test_data, epochs=1, scheduler=None, scheduler_type='epoch', 
-               warmup=0, writer=None, log_freq=1, log_level=2, loss_f=F.cross_entropy, log_start=0):
+               warmup=0, writer=None, log_freq=1, log_level=2, loss_f=F.cross_entropy, log_start=0, 
+               save_best_model=False, save_path=None):
   """    
   Inputs:
   - model: A PyTorch Module giving the model to train.
@@ -25,6 +26,9 @@ def train_part(model, optimizer, train_data, test_data, epochs=1, scheduler=None
   """
   if scheduler is not None and scheduler_type not in {'epoch', 'acc', 'train_acc', 'loss'}:
     raise ValueError('Scheduler update type not recognised. Current types are: [epoch, acc, train_acc, loss]')
+
+  save_models = save_best_model and save_path is not None
+  best_score = 0.0
   
   print("Number of train datapoints: %d" % (len(train_data)))
   model = model.to(device=device)  # move the model parameters to CPU/GPU
@@ -74,6 +78,12 @@ def train_part(model, optimizer, train_data, test_data, epochs=1, scheduler=None
       else:
         print('[%.2d/%.2d] lr %.5f | loss = %.4f | train acc = %.2f | test acc = %.2f' \
               % (e + 1, epochs, get_lr(optimizer), loss.item(), train_acc, acc))
+
+      # Save models enabled
+      if save_models and log_level == 2:
+        if acc >= best_score:
+          best_score = acc
+          save_model(model, save_path, verbose=True)
 
       # Write to tensorboard if available
       if USE_TB and not writer is None:
