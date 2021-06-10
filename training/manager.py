@@ -1,6 +1,6 @@
 from al_sampling.utils import initialise_seed_dataloader, create_dataloader_from_indices
 from training.train import train_part
-from training.utils import log_timestamp, check_accuracy
+from training.utils import log_timestamp, check_accuracy, save_model
 from constants import ConfigManager
 
 USE_TB = ConfigManager.USE_TB
@@ -16,6 +16,7 @@ from ast import literal_eval
 import math
 import os
 import copy
+from shutil import copyfile
 
 import torch
 import numpy as np
@@ -364,21 +365,26 @@ class ActiveLearningComparison():
                   scheduler=self.schedulers[i],
                   scheduler_type=self.scheduler_type,
                   log_freq=self.log_freq,
-                  log_level=self.log_level
+                  log_level=self.log_level,
+                  save_best_model=save,
+                  save_path=self.save_loc+f'/model_{self.q_names[i]}_iter_{self.train_iter}.pt'
                   )
       
       log_timestamp()
       if first_run:
+        if save:
+          self.models[0] = self.load_model(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt')
         for k in range(1, len(self.models)):
-          self.models[k] = copy.deepcopy(self.models[0])
           if save:
             self.results[k].append(res)
-            self.save_model(k, self.q_names[k])
+            copyfile(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt', 
+                     self.save_loc+f'/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
+          self.models[k] = copy.deepcopy(self.models[0])
 
       if save:
         self.results[i].append(res)
         self.save_results()
-        self.save_model(i, self.q_names[i])
+        self.models[i] = self.load_model(self.save_loc+f'/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
         
     return res
 
@@ -488,6 +494,10 @@ class ActiveLearningComparison():
 
         results[i].append(res)
         self.save_results(filename=filename, results=results)
+
+      
+    # Reset the models
+    self.init_models()
     
     return res
 

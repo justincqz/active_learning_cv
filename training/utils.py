@@ -150,3 +150,11 @@ def add_method(cls):
     return func
   
   return decorator
+
+# Function which saves the model to a path
+def save_model(model, path, verbose=False):
+  torch.save(model.cpu().state_dict(), path)
+  if verbose:
+    print(f'Saved trained model to {path}')
+  
+  model.to(device)

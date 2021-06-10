@@ -7,6 +7,7 @@ from data_processing.dog import DogDS
 from data_processing.covid import CovidDS
 from al_sampling.sample_factory import ActiveLearningSampler
 from constants import ConfigManager
+from experiments import use_predefined_experiments
 
 import torchvision.models as models
 from models import ResNet20
@@ -40,308 +41,29 @@ if __name__ == '__main__':
   batch_size = 64
   # batch_size = 128
 
-  query_types = [
-    # {'name': 'margin-weighted-coreset-cosine', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.margin,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'cosine'
-    #   }
-    # })},
-    # {'name': 'margin-weighted-coreset-cosine-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.margin,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'cosine'
-    #   }
-    # })},
-    # {'name': 'conf-weighted-coreset-cosine', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.confidence,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'cosine'
-    #   }
-    # })},
-    # {'name': 'conf-weighted-coreset-cosine-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.confidence,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'cosine'
-    #   }
-    # })},
-    # {'name': 'grad-weighted-coreset-cosine', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.gradients,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'cosine'
-    #   }
-    # })},
-    # {'name': 'grad-weighted-coreset-cosine-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.gradients,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'cosine'
-    #   }
-    # })},
-    # {'name': 'margin-weighted-coreset-euclidean', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.margin,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'options': {
-    #     'weighted_by_score': True
-    #   }
-    # })},
-    # {'name': 'margin-weighted-coreset-euclidean-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.margin,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True
-    #   }
-    # })},
-    # {'name': 'grad-weighted-coreset-euclidean', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.gradients,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'options': {
-    #     'weighted_by_score': True
-    #   }
-    # })},
-    # {'name': 'grad-weighted-coreset-euclidean-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.gradients,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True
-    #   }
-    # })},
-    # {'name': 'grad-weighted-coreset-manhattan', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.gradients,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'manhattan'
-    #   }
-    # })},
-    # {'name': 'grad-weighted-coreset-manhattan-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.gradients,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'manhattan'
-    #   }
-    # })},
-    # {'name': 'margin-weighted-coreset-manhattan', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.margin,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'manhattan'
-    #   }
-    # })},
-    # {'name': 'margin-weighted-coreset-manhattan-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.margin,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'manhattan'
-    #   }
-    # })},
-    # {'name': 'conf-weighted-coreset-euclidean', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.confidence,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'options': {
-    #     'weighted_by_score': True
-    #   }
-    # })},
-    # {'name': 'conf-weighted-coreset-euclidean-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.confidence,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True
-    #   }
-    # })},
-    # {'name': 'conf-weighted-coreset-manhattan', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.confidence,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'manhattan'
-    #   }
-    # })},
-    # {'name': 'conf-weighted-coreset-manhattan-pca', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.confidence,
-    #   'diversity': ActiveLearningSampler.diversity.coreset,
-    #   'batch_size': batch_size,
-    #   'use_pca': True,
-    #   'options': {
-    #     'weighted_by_score': True,
-    #     'distance_metric': 'manhattan'
-    #   }
-    # })},
-    # {'name': 'random', 'func': ActiveLearningSampler({
-    #   'entropy': ActiveLearningSampler.entropy.confidence,
-    #   'diversity': ActiveLearningSampler.diversity.random,
-    #   'diversity_mix': 0.0,
-    #   'passive_learning': 1.0,
-    #   'batch_size': batch_size
-    # })},
-    {'name': 'margin', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.margin,
-      'diversity': ActiveLearningSampler.diversity.random,
-      'diversity_mix': 0.0,
-      'batch_size': batch_size
-    })},
-    {'name': 'margin-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.margin,
-      'diversity': ActiveLearningSampler.diversity.random,
-      'diversity_mix': 0.2,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-nearest-margin', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.margin,
-      'diversity': ActiveLearningSampler.diversity.knearest,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-nearest-margin-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.margin,
-      'diversity': ActiveLearningSampler.diversity.knearest,
-      'passive_learning': 0.2,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-center-margin', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.margin,
-      'diversity': ActiveLearningSampler.diversity.coreset,
-      'batch_size': batch_size,
-      'options': {
-        'weighted_by_score': True,
-        'distance_metric': 'euclidean'
-      }
-    })},
-    {'name': 'k-center-margin-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.margin,
-      'diversity': ActiveLearningSampler.diversity.coreset,
-      'passive_learning': 0.2,
-      'batch_size': batch_size,
-      'options': {
-        'weighted_by_score': True,
-        'distance_metric': 'euclidean'
-      }
-    })},
-    {'name': 'conf', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.confidence,
-      'diversity': ActiveLearningSampler.diversity.random,
-      'diversity_mix': 0.0,
-      'batch_size': batch_size
-    })},
-    {'name': 'conf-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.confidence,
-      'diversity': ActiveLearningSampler.diversity.random,
-      'diversity_mix': 0.2,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-nearest-conf', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.confidence,
-      'diversity': ActiveLearningSampler.diversity.knearest,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-nearest-conf-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.confidence,
-      'diversity': ActiveLearningSampler.diversity.knearest,
-      'passive_learning': 0.2,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-center-conf', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.confidence,
-      'diversity': ActiveLearningSampler.diversity.coreset,
-      'batch_size': batch_size,
-      'options': {
-        'weighted_by_score': True,
-        'distance_metric': 'euclidean'
-      }
-    })},
-    {'name': 'k-center-conf-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.confidence,
-      'diversity': ActiveLearningSampler.diversity.coreset,
-      'passive_learning': 0.2,
-      'batch_size': batch_size,
-      'options': {
-        'weighted_by_score': True,
-        'distance_metric': 'euclidean'
-      }
-    })},
-    {'name': 'grad', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.gradients,
-      'diversity': ActiveLearningSampler.diversity.random,
-      'diversity_mix': 0.0,
-      'batch_size': batch_size
-    })},
-    {'name': 'grad-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.gradients,
-      'diversity': ActiveLearningSampler.diversity.random,
-      'diversity_mix': 0.2,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-nearest-grad', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.gradients,
-      'diversity': ActiveLearningSampler.diversity.knearest,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-nearest-grad-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.gradients,
-      'diversity': ActiveLearningSampler.diversity.knearest,
-      'passive_learning': 0.2,
-      'batch_size': batch_size
-    })},
-    {'name': 'k-center-grad', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.gradients,
-      'diversity': ActiveLearningSampler.diversity.coreset,
-      'batch_size': batch_size,
-      'options': {
-        'weighted_by_score': True,
-        'distance_metric': 'euclidean'
-      }
-    })},
-    {'name': 'k-center-grad-mix', 'func': ActiveLearningSampler({
-      'entropy': ActiveLearningSampler.entropy.gradients,
-      'diversity': ActiveLearningSampler.diversity.coreset,
-      'passive_learning': 0.2,
-      'batch_size': batch_size,
-      'options': {
-        'weighted_by_score': True,
-        'distance_metric': 'euclidean'
-      }
-    })},
-  ]
+  # PREDEFINED OPTIONS:
+
+  # 1: Feature Representation Experiment
+  # Includes:
+  # 0  margin-weighted-coreset-cosine, margin-weighted-coreset-cosine-pca
+  # 2  conf-weighted-coreset-cosine, conf-weighted-coreset-cosine-pca
+  # 4  grad-weighted-coreset-cosine, grad-weighted-coreset-cosine-pca
+  # 6  margin-weighted-coreset-euclidean, margin-weighted-coreset-euclidean-pca
+  # 8  grad-weighted-coreset-euclidean, grad-weighted-coreset-euclidean-pca
+  # 10 grad-weighted-coreset-manhattan, grad-weighted-coreset-manhattan-pca
+  # 12 margin-weighted-coreset-manhattan, margin-weighted-coreset-manhattan-pca
+  # 14 conf-weighted-coreset-euclidean, conf-weighted-coreset-euclidean-pca
+  # 16 conf-weighted-coreset-manhattan, conf-weighted-coreset-manhattan-pca
+
+  # 2: Scoring function, sampling and mix experiments
+  # Includes
+  # 18 random
+  # 19 margin, margin-mix, k-nearest-margin, k-nearest-margin-mix, k-center-margin, k-center-margin-mix
+  # 25 conf, conf-mix, k-nearest-conf, k-nearest-conf-mix, k-center-conf, k-center-conf-mix
+  # 31 grad, grad-mix, k-nearest-grad, k-nearest-grad-mix, k-center-grad, k-center-grad-mix
+  # query_types = use_predefined_experiments(list(range(19, 37)), batch_size)
+  # query_types = use_predefined_experiments([18,0,1,2,3,4,5,15,16,17], batch_size)
+  query_types = use_predefined_experiments([18], batch_size)
 
   # Setup the runner
   runner = ActiveLearningComparison(dset.train,
@@ -362,12 +84,14 @@ if __name__ == '__main__':
                                     batch_size=batch_size,
                                     log_freq=2,
                                     log_level=2,
-                                    run_id=800002,
-                                    load_from_another_seed=None)
+                                    run_id=800004,
+                                    load_from_another_seed=800002)
 
   print("Initialised models.")
-  
-  query_iterations = 3
+
+  runner.run_validation(iterations=5, log_freq=2, log_level=2, epochs=20, log_start=12)
+
+  query_iterations = 1
   for i in range(query_iterations):
     print(f'Iteration: {runner.train_iter}')
     runner.run_train_and_query()
