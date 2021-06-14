@@ -78,6 +78,7 @@ class ActiveLearningComparison():
     # Initialise seed loaders if we are not continuing from before
     if not loaded:
       self.create_indicies()
+      self.save_indices()
 
     self.init_models(loaded=loaded)
 
@@ -198,7 +199,7 @@ class ActiveLearningComparison():
     if self.verbose:
       print(f'Saved results to {self.save_loc}/{filename}.json')
 
-  def save_model(self, model_idx, filename):
+  def save_model(self, model_idx: int, filename: str) -> None:
     if self.save_loc is None:
       return
 
@@ -331,7 +332,7 @@ class ActiveLearningComparison():
     assert len([0 for i in self.optims if i is None]) == 0
     assert len([0 for i in self.schedulers if i is None]) == 0
 
-  def run_train(self, save=True, first_run=False):
+  def run_train(self, save=True, first_run=False, save_models=True):
     if first_run:
       self.to_train = [0]
       
@@ -366,26 +367,30 @@ class ActiveLearningComparison():
                   scheduler_type=self.scheduler_type,
                   log_freq=self.log_freq,
                   log_level=self.log_level,
-                  save_best_model=save,
+                  save_best_model=save and save_models,
                   save_path=self.save_loc+f'/model_{self.q_names[i]}_iter_{self.train_iter}.pt'
                   )
       
       log_timestamp()
-      if first_run:
-        if save:
-          self.models[0] = self.load_model(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt')
-        for k in range(1, len(self.models)):
-          if save:
-            self.results[k].append(res)
-            copyfile(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt', 
-                     self.save_loc+f'/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
-          self.models[k] = copy.deepcopy(self.models[0])
 
       if save:
         self.results[i].append(res)
         self.save_results()
+
+      if save_models:
         self.models[i] = self.load_model(self.save_loc+f'/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
-        
+
+      if first_run:
+        if save_models:
+          self.models[0] = self.load_model(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt')
+        for k in range(1, len(self.models)):
+          if save:
+            self.results[k].append(res)
+          if save_models:
+            copyfile(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt', 
+                     self.save_loc+f'/model_{self.q_names[k]}_iter_{self.train_iter}.pt')
+          self.models[k] = copy.deepcopy(self.models[0])
+
     return res
 
   def run_query(self):
@@ -418,7 +423,7 @@ class ActiveLearningComparison():
         targets = np.array(self.data.targets)[new_idx]
         temp_df = pd.DataFrame(zip(range(len(targets)), targets), columns=['idx', 'label'])
         temp_df = temp_df.groupby('label').count()
-        temp_df['class'] = self.data.classes[temp_df.index]
+        temp_df['class'] = np.array(self.data.classes)[[int(k) for k in temp_df.index]]
         plt.bar(range(len(temp_df)), temp_df['idx'], align='center')
         plt.xticks(range(len(temp_df)), temp_df['class'], size='small')
         plt.title(f'New Image Class Counts for {self.q_names[i]}')
@@ -436,16 +441,17 @@ class ActiveLearningComparison():
     self.init_models()
     self.train_iter += 1
 
-  def run_train_and_query(self):
+  def run_train_and_query(self, save_models=True):
     is_first_run = self.copy_on_first_iter and self.train_iter == 0
-    self.run_train(save=True, first_run=is_first_run)
+    self.run_train(save=True, first_run=is_first_run, save_models=save_models)
     self.run_query()
 
-  def run_validation(self, iterations=3, log_freq=None, log_level=None, epochs=None, log_start=0):
+  def run_validation(self, iterations=3, log_freq=None, log_level=None, epochs=None, log_start=0, only_run=None):
     results = [[] for _ in range(len(self.q_types))]
     l_freq  = log_freq  if not log_freq  is None else self.log_freq
     l_level = log_level if not log_level is None else self.log_level
     eps     = epochs    if not epochs    is None else self.epochs
+    to_run  = range(len(self.models)) if only_run is None else only_run
 
     # Make sure that each validation run is not overidden
     filename = 'val-results'
@@ -466,7 +472,7 @@ class ActiveLearningComparison():
         print(f'Validation iteration: {it}')
         log_timestamp()
 
-      for i in range(len(self.models)):
+      for i in to_run:
         if self.verbose:
           print("| Training %s |" % (self.q_names[i]))
           log_timestamp()
@@ -498,7 +504,7 @@ class ActiveLearningComparison():
       
     # Reset the models
     self.init_models()
-    
+
     return res
 
 def ask_bool_prompt(msg: str) -> bool:
