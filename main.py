@@ -62,8 +62,9 @@ if __name__ == '__main__':
   # 25 conf, conf-mix, k-nearest-conf, k-nearest-conf-mix, k-center-conf, k-center-conf-mix
   # 31 grad, grad-mix, k-nearest-grad, k-nearest-grad-mix, k-center-grad, k-center-grad-mix
   # query_types = use_predefined_experiments(list(range(19, 37)), batch_size)
-  # query_types = use_predefined_experiments([18,0,1,2,3,4,5,15,16,17], batch_size)
-  query_types = use_predefined_experiments([18], batch_size)
+  # query_types = use_predefined_experiments([8,9,6,7,14], batch_size)
+  query_types = use_predefined_experiments([0,1,2,3,4,5,10,11,12,13,15,16,17], batch_size)
+  # query_types = use_predefined_experiments([18], batch_size)
 
   # Setup the runner
   runner = ActiveLearningComparison(dset.train,
@@ -84,19 +85,19 @@ if __name__ == '__main__':
                                     batch_size=batch_size,
                                     log_freq=2,
                                     log_level=2,
-                                    run_id=800004,
-                                    load_from_another_seed=800002)
+                                    run_id=800005,
+                                    load_from_another_seed=None)
 
   print("Initialised models.")
 
-  runner.run_validation(iterations=5, log_freq=2, log_level=2, epochs=20, log_start=12)
+  # runner.run_validation(iterations=5, log_freq=2, log_level=2, epochs=20, log_start=12)
 
-  query_iterations = 1
-  for i in range(query_iterations):
-    print(f'Iteration: {runner.train_iter}')
-    runner.run_train_and_query()
+  # query_iterations = 3
+  # for i in range(query_iterations):
+  #   print(f'Iteration: {runner.train_iter}')
+  #   runner.run_train_and_query()
   
-  runner.run_validation(iterations=5, log_freq=2, log_level=2, epochs=20, log_start=12)
+  runner.run_validation(iterations=5, log_freq=1, log_level=2, epochs=20, log_start=9, only_run=[4])
 
   # print(f'Iteration: {runner.train_iter}')
   # runner.run_train_and_query()

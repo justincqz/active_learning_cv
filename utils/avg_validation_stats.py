@@ -27,7 +27,9 @@ def get_average_values(run_id, results_files=None, verbose=False):
 
     for i in range(len(query_names)):
       top_values[i].extend([max([values['test_acc'] for values in query_iter]) for query_iter in results[i]])
-  
+
+  top_values = [i for i in top_values if len(i) > 0]
+
   # Calculate metrics
   top_results = np.max(top_values, axis=1)
   means = np.mean(top_values, axis=1)
