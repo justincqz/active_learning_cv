@@ -27,7 +27,7 @@ import pandas as pd
 class ActiveLearningComparison():
   def __init__(self, data, test_data, model, optim, epochs=10,
                learning_rate=0.01, query_percent=0.1, seed_percent=0.1, 
-               query_types=[], random_seed=42, scheduler=None, scheduler_type='epoch', 
+               query_types=[], random_seed=42, scheduler=None, scheduler_type=None, 
                loss_func=None, initial_class_sample=0, batch_size=128,
                verbose=True, log_freq=1, log_level=2, run_id=None, load_from_another_seed=None):
     
@@ -43,7 +43,7 @@ class ActiveLearningComparison():
     self.q_types = [q['func'] for q in query_types]
     self.r_seed = random_seed
     self.scheduler = scheduler
-    self.scheduler_type = scheduler_type
+    self.scheduler_type = scheduler_type if scheduler_type is not None else 'train_acc'
     self.model = model
     self.optim = optim
     self.loss_fs = loss_func

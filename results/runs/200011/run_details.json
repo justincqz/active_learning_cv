@@ -1,1 +1,0 @@
-{'run_id': '200011', 'query_types': ['random'], 'model': 'resnet18', 'dataset': 'images', 'seed_percent': 0.1}

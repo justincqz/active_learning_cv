@@ -63,8 +63,8 @@ if __name__ == '__main__':
   # 31 grad, grad-mix, k-nearest-grad, k-nearest-grad-mix, k-center-grad, k-center-grad-mix
   # query_types = use_predefined_experiments(list(range(19, 37)), batch_size)
   # query_types = use_predefined_experiments([8,9,6,7,14], batch_size)
-  query_types = use_predefined_experiments([0,1,2,3,4,5,10,11,12,13,15,16,17], batch_size)
-  # query_types = use_predefined_experiments([18], batch_size)
+  # query_types = use_predefined_experiments([0,1,2,3,4,5,10,11,12,13,15,16,17], batch_size)
+  query_types = use_predefined_experiments([18], batch_size)
 
   # Setup the runner
   runner = ActiveLearningComparison(dset.train,
@@ -73,19 +73,19 @@ if __name__ == '__main__':
                                     mobilenet_wrapper_factory(models.mobilenet_v2, 10, intermediate_dim=320),
                                     optim.SGD,
                                     # epochs=70,
-                                    epochs=20,
+                                    epochs=25,
                                     # learning_rate=0.03,
-                                    learning_rate=0.02,
-                                    query_percent=0.1,
-                                    seed_percent=0.1,
+                                    learning_rate=0.01,
+                                    query_percent=0.0,
+                                    seed_percent=1.0,
                                     query_types=query_types,
                                     scheduler=optim.lr_scheduler.ReduceLROnPlateau,
                                     scheduler_type='train_acc',
                                     # initial_class_sample=200,
                                     batch_size=batch_size,
-                                    log_freq=2,
+                                    log_freq=1,
                                     log_level=2,
-                                    run_id=800005,
+                                    run_id=900001,
                                     load_from_another_seed=None)
 
   print("Initialised models.")
@@ -97,10 +97,10 @@ if __name__ == '__main__':
   #   print(f'Iteration: {runner.train_iter}')
   #   runner.run_train_and_query()
   
-  runner.run_validation(iterations=5, log_freq=1, log_level=2, epochs=20, log_start=9, only_run=[4])
+  # runner.run_validation(iterations=5, log_freq=1, log_level=2, epochs=20, log_start=9, only_run=[4])
 
   # print(f'Iteration: {runner.train_iter}')
-  # runner.run_train_and_query()
+  runner.run_train_and_query()
 
   # runner.run_validation(iterations=5, log_freq=1, log_level=2, epochs=20)
   
@@ -153,4 +153,5 @@ if __name__ == '__main__':
   #                         ResNet20,
   #                         # mobilenet_wrapper_factory(models.mobilenet_v2, 3), 
   #                         dset.query)
+  
   # tsne_plot.generate_tsne(idx=[0, 3, 6])
