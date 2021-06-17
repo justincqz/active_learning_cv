@@ -8,6 +8,7 @@ class FMnistDS(DataPrep):
     self.data_dir = './data/fmnist' if data_dir is None else data_dir
     self.train_transform = train_transform
     self.test_transform = test_transform
+    self.initialise_datasets()
   
   def initialise_datasets(self):
     # Set parameters for data loading
