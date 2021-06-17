@@ -331,7 +331,6 @@ class ActiveLearningComparison():
     
     assert len([0 for i in self.models if i is None]) == 0
     assert len([0 for i in self.optims if i is None]) == 0
-    assert len([0 for i in self.schedulers if i is None]) == 0
 
   def run_train(self, save=True, first_run=False, save_models=True):
     if first_run:
