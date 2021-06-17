@@ -103,7 +103,7 @@ class Plotter():
     self.plot.show()
 
 
-# Plots the TSNE 
+# Plots the TSNE using the model
 class TSNEPlotter():
   def __init__(self, query_names, cur_idx_path, prev_idx_path, model_paths, model, data, save=None):
     if not os.path.isfile(prev_idx_path):
