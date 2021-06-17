@@ -326,7 +326,8 @@ class ActiveLearningComparison():
       self.optims[i] = self.optim(self.models[i].parameters(), lr=self.lr)
     
     for i in range(len(missing_schedulers)):
-      self.schedulers[i] = self.scheduler(self.optims[i], mode='max', factor=0.5, patience=1)
+      if self.scheduler is not None:
+        self.schedulers[i] = self.scheduler(self.optims[i], mode='max', factor=0.5, patience=1)
     
     assert len([0 for i in self.models if i is None]) == 0
     assert len([0 for i in self.optims if i is None]) == 0
