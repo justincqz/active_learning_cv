@@ -139,7 +139,7 @@ class TSNEPlotter():
 
     self.save = save
 
-  def get_features(self, model, remove_last_layer_for_feature=True, batch_size=256):
+  def get_features(self, model, remove_last_layer_for_feature=False, batch_size=256):
     # Initialise generic index list
     indices = np.arange(len(self.data))
     features = []
