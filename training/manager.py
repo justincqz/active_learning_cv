@@ -377,16 +377,16 @@ class ActiveLearningComparison():
         self.results[i].append(res)
         self.save_results()
 
-      if save_models:
+      if save_models and save:
         self.models[i] = self.load_model(self.save_loc+f'/model_{self.q_names[i]}_iter_{self.train_iter}.pt')
 
       if first_run:
-        if save_models:
+        if save_models and save:
           self.models[0] = self.load_model(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt')
         for k in range(1, len(self.models)):
           if save:
             self.results[k].append(res)
-          if save_models:
+          if save_models and save:
             copyfile(self.save_loc+f'/model_{self.q_names[0]}_iter_{self.train_iter}.pt', 
                      self.save_loc+f'/model_{self.q_names[k]}_iter_{self.train_iter}.pt')
           self.models[k] = copy.deepcopy(self.models[0])
