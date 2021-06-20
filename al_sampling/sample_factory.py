@@ -237,7 +237,7 @@ class ActiveLearningSampler(BaseSampler):
 
   def query(self, query_size, known_data_idx, data, model, writer=None):
     # Scoring
-    if self.diversity_method is self.diversity.random and self.diversity_mix >= 1:
+    if self.diversity_method is self.diversity.random and int(self.diversity_mix) == 1:
       print('Skip feature building, as this is random sampling.')
     else:
       if self.verbose:
