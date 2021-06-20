@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import time
 import sklearn.metrics as metrics
+import os
 
 device = ConfigManager.device
 
@@ -158,3 +159,16 @@ def save_model(model, path, verbose=False):
     print(f'Saved trained model to {path}')
   
   model.to(device)
+
+def load_model(model, location, to_device=True):
+  assert os.path.isfile(location)
+  try:
+    m = model()
+    state_dict = torch.load(location)
+    m.load_state_dict(state_dict)
+    if to_device:
+      m.to(device)
+  except Exception:
+    print(f'Unable to load trained model. \n Location: {location}')
+    return None
+  return m

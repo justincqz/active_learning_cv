@@ -228,3 +228,38 @@ class TSNEPlotter():
         plt.show()
       else:
         plt.savefig(f'{self.save}/{self.query_names[index]}.png')
+
+def get_tsne_features(data, model, remove_last_layer_for_feature=True, batch_size=256):
+  # Initialise generic index list
+  indices = np.arange(len(data))
+  features = []
+  classes = []
+
+  with torch.no_grad():
+    for i in [indices[x:x+batch_size] for x in range(0, len(data), batch_size)]:
+      x = []
+      for i_ in i:
+        x.append(data[i_][0].to(device=device))
+        y = data[i_][1]
+        classes.append(y)
+      x = torch.stack(x).to(device)
+      
+      if remove_last_layer_for_feature:
+        feat = nn.Sequential(*list(model.children())[:-1])(x)
+        feat = nn.functional.avg_pool2d(feat, feat.shape[-1]).squeeze()
+        last_layer = list(model.children())[-1]
+        last_layer = last_layer if hasattr(last_layer, '__iter__') else [last_layer]
+        # out = nn.Sequential(*last_layer)(feat).view(1, -1)
+        features.extend(feat.cpu())
+      else:
+        out = model(x)
+        features.extend(out.cpu())
+
+  # Stack the list into a tensor object with shape (N, logits)
+  features = torch.stack(features).squeeze().numpy()
+  classes = torch.LongTensor(classes).numpy()
+
+  # Generate the TSNE plot
+  transformed_xs = TSNE(n_components=2).fit_transform(features)
+  
+  return features, transformed_xs, classes 

@@ -237,13 +237,16 @@ class ActiveLearningSampler(BaseSampler):
 
   def query(self, query_size, known_data_idx, data, model, writer=None):
     # Scoring
-    if self.verbose:
-      print('Getting metrics (score and features).')
-    scores, features = self.get_metrics(data, model)
-    if self.use_pca:
+    if self.diversity_method is self.diversity.random and self.diversity_mix >= 1:
+      print('Skip feature building, as this is random sampling.')
+    else:
       if self.verbose:
-        print('Performing PCA.')
-      features = PCA().fit_transform(features)
+        print('Getting metrics (score and features).')
+      scores, features = self.get_metrics(data, model)
+      if self.use_pca:
+        if self.verbose:
+          print('Performing PCA.')
+        features = PCA().fit_transform(features)
 
     # Passive learning mixture
     if self.pl_amount > 0:
