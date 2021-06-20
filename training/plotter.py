@@ -229,7 +229,7 @@ class TSNEPlotter():
       else:
         plt.savefig(f'{self.save}/{self.query_names[index]}.png')
 
-def get_tsne_features(data, model, remove_last_layer_for_feature=True, batch_size=256):
+def get_tsne_features(data, model, remove_last_layer_for_feature=False, batch_size=256):
   # Initialise generic index list
   indices = np.arange(len(data))
   features = []
