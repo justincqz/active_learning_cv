@@ -431,6 +431,9 @@ class ActiveLearningComparison():
         
       self.train_loaders[i] = create_dataloader_from_indices(self.data, self.cur_idx[i], self.batch_size)
     
+    # Update train iteration count
+    self.train_iter += 1
+
     if self.verbose:
       print("| Resetting models and optimizers |")
 
@@ -439,7 +442,6 @@ class ActiveLearningComparison():
 
     # Reset the models
     self.init_models()
-    self.train_iter += 1
 
   def run_train_and_query(self, save_models=True):
     is_first_run = self.copy_on_first_iter and self.train_iter == 0
