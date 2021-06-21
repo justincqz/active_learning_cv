@@ -419,7 +419,7 @@ class ActiveLearningComparison():
         log_timestamp()
 
       if not writer is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(30,10))
         targets = np.array(self.data.targets)[new_idx]
         temp_df = pd.DataFrame(zip(range(len(targets)), targets), columns=['idx', 'label'])
         temp_df = temp_df.groupby('label').count()
