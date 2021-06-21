@@ -194,7 +194,7 @@ class TSNEPlotter():
 
       # We make two subplots, one for comparing known vs unknown and one for comparing classification labels
       # First we look at the classification labels
-      fig = plt.figure()
+      fig = plt.figure(figsize=(15,15))
       ax = fig.add_subplot(1, 2, 1)
       plt.title(f'TSNE plots for {self.query_names[index]} Query wrt Labels')
       groups = [[] for _ in range(len(set(ys)))]
